@@ -1,0 +1,17 @@
+Traffic_light.c:30:6:convert	24	static
+Traffic_light.c:48:6:traffic_double_display_convert	32	static
+Traffic_light.c:111:6:traffic_double_display	32	static
+Traffic_light.c:192:6:traffic_display	24	static
+Traffic_light.c:213:6:traffic_init	8	static
+Traffic_light.c:227:6:traffic_green_red	8	static
+Traffic_light.c:239:6:traffic_yellow_red	8	static
+Traffic_light.c:260:6:traffic_red_red1	8	static
+Traffic_light.c:274:6:traffic_red_green	8	static
+Traffic_light.c:287:6:traffic_red_yellow	8	static
+Traffic_light.c:320:6:traffic_mannual_green_red	8	static
+Traffic_light.c:328:6:traffic_mannual_yellow_red	8	static
+Traffic_light.c:336:6:traffic_mannual_red_green	8	static
+Traffic_light.c:344:6:traffic_mannual_red_yellow	8	static
+Traffic_light.c:354:6:traffic_set_time_red	8	static
+Traffic_light.c:390:6:traffic_set_time_yellow	8	static
+Traffic_light.c:420:6:traffic_set_time_green	8	static

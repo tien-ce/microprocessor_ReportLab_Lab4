@@ -1,0 +1,102 @@
+#include "scheduler.h"
+
+#define SCH_MAX_TASKS 40
+#define TIMING_WHEEL_SIZE 256  // Adjust as needed
+uint8_t current_tick = 0;
+sTasks* timing_wheel[TIMING_WHEEL_SIZE];  // Array of task lists
+sTasks task_array[SCH_MAX_TASKS];  // Pre-allocated tasks
+sTasks* free_list = NULL;  // Linked list of free tasks
+
+void SCH_INIT(void){
+    current_tick = 0;
+    // Initialize the timing wheel
+    for (int i = 0; i < TIMING_WHEEL_SIZE; i++) {
+        timing_wheel[i] = NULL;
+    }
+    // Initialize the free list
+    for (int i = 0; i < SCH_MAX_TASKS - 1; i++) {
+        task_array[i].next = &task_array[i + 1];
+    }
+    task_array[SCH_MAX_TASKS - 1].next = NULL;
+    free_list = &task_array[0];
+}
+
+void SCH_Add_Task(void (*pFunction)(), uint32_t DELAY, uint32_t PERIOD){
+    if (free_list == NULL) {
+        // No free task slots available
+        return;
+    }
+    // Allocate a task from the free list
+    sTasks* new_task = free_list;
+    free_list = free_list->next;
+
+    // Initialize the task
+    new_task->pTask = pFunction;
+    new_task->Period = PERIOD;
+    new_task->TaskID = (uint32_t)new_task;  // Unique ID
+    new_task->next = NULL;
+
+    // Calculate the time slot index
+    uint32_t slot = (current_tick + DELAY) % TIMING_WHEEL_SIZE;
+
+    // Insert the task into the timing wheel
+    new_task->next = timing_wheel[slot];
+    timing_wheel[slot] = new_task;
+}
+
+void SCH_Update(void){
+    // Move to the next time slot
+    current_tick = (current_tick + 1) % TIMING_WHEEL_SIZE;
+}
+
+void SCH_Dispatch_Task(void){
+    sTasks* current_task = timing_wheel[current_tick];
+    timing_wheel[current_tick] = NULL;  // Clear the slot
+
+    while (current_task != NULL) {
+        sTasks* next_task = current_task->next;
+
+        // Execute the task
+        current_task->pTask();
+
+        if (current_task->Period > 0) {
+            // Reschedule the periodic task
+            uint32_t slot = (current_tick + current_task->Period) % TIMING_WHEEL_SIZE;
+            current_task->next = timing_wheel[slot];
+            timing_wheel[slot] = current_task;
+        } else {
+            // Return the task to the free list
+            current_task->next = free_list;
+            free_list = current_task;
+        }
+
+        current_task = next_task;
+    }
+}
+
+void SCH_Delete(uint32_t ID){
+    for (int i = 0; i < TIMING_WHEEL_SIZE; i++) {
+        sTasks* prev_task = NULL;
+        sTasks* current_task = timing_wheel[i];
+
+        while (current_task != NULL) {
+            if (current_task->TaskID == ID) {
+                // Remove the task
+                if (prev_task == NULL) {
+                    timing_wheel[i] = current_task->next;
+                } else {
+                    prev_task->next = current_task->next;
+                }
+                // Return to free list
+                current_task->next = free_list;
+                free_list = current_task;
+                return;
+            }
+            prev_task = current_task;
+            current_task = current_task->next;
+        }
+    }
+}
+void SCH_Add_Oneshot_Task(void (*pFunction)(), uint32_t DELAY){
+    SCH_Add_Task(pFunction, DELAY, 0);
+}

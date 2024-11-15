@@ -1,0 +1,114 @@
+#include "scheduler.h"
+
+#define SCH_MAX_TASKS 40
+#define TIMING_WHEEL_SIZE 256  // Size of the timing wheel (adjust as needed)
+
+uint8_t current_time_index = 0;  // Current time slot index
+sTasks* timing_wheel[TIMING_WHEEL_SIZE];  // Array of task lists for each time slot
+sTasks SCH_Tasks_G[SCH_MAX_TASKS];  // Pre-allocated tasks
+sTasks* free_list = NULL;  // Free list for task management
+
+void SCH_INIT(void) {
+    current_time_index = 0;
+    // Initialize timing wheel slots to NULL
+    for (int i = 0; i < TIMING_WHEEL_SIZE; i++) {
+        timing_wheel[i] = NULL;
+    }
+    // Initialize free list with pre-allocated tasks
+    for (int i = 0; i < SCH_MAX_TASKS - 1; i++) {
+        SCH_Tasks_G[i].next = &SCH_Tasks_G[i + 1];
+    }
+    SCH_Tasks_G[SCH_MAX_TASKS - 1].next = NULL;
+    free_list = &SCH_Tasks_G[0];
+}
+
+void SCH_Add_Task(void (*pFunction)(), uint32_t DELAY, uint32_t PERIOD) {
+    // Check if a free task is available
+    if (free_list == NULL) {
+        // Handle error: No free tasks available
+        return;
+    }
+    // Allocate a new task from the free list
+    sTasks* new_task = free_list;
+    free_list = free_list->next;
+
+    // Initialize the task
+    new_task->pTask = pFunction;
+    new_task->Period = PERIOD;
+    new_task->TaskID = (uint32_t)new_task;  // Use the address as a unique ID
+    new_task->next = NULL;
+
+    // Calculate the slot index for scheduling
+    uint8_t slot_index = (current_time_index + DELAY) % TIMING_WHEEL_SIZE;
+
+    // Add the task to the timing wheel slot
+    new_task->next = timing_wheel[slot_index];
+    timing_wheel[slot_index] = new_task;
+}
+
+void SCH_Add_Oneshort_tasks(void (*pFunction)(), uint32_t DELAY) {
+    SCH_Add_Task(pFunction, DELAY, 0);
+}
+
+void SCH_Update(void) {
+    // Increment the current time index (modulo the timing wheel size)
+    current_time_index = (current_time_index + 1) % TIMING_WHEEL_SIZE;
+}
+
+void SCH_Dispatch_Task(void) {
+    // Get the list of tasks scheduled for the current time slot
+    sTasks* task_list = timing_wheel[current_time_index];
+    timing_wheel[current_time_index] = NULL;  // Clear the slot
+
+    while (task_list != NULL) {
+        sTasks* current_task = task_list;
+        task_list = task_list->next;
+
+        // Execute the task function
+        current_task->pTask();
+
+        if (current_task->Period > 0) {
+            // Reschedule the periodic task
+            uint8_t slot_index = (current_time_index + current_task->Period) % TIMING_WHEEL_SIZE;
+            current_task->next = timing_wheel[slot_index];
+            timing_wheel[slot_index] = current_task;
+        } else {
+            // Return the one-shot task to the free list
+            current_task->next = free_list;
+            free_list = current_task;
+        }
+    }
+}
+
+void SCH_Delete(uint32_t ID) {
+    // Iterate over all slots in the timing wheel
+    for (int i = 0; i < TIMING_WHEEL_SIZE; i++) {
+        sTasks* prev_task = NULL;
+        sTasks* current_task = timing_wheel[i];
+
+        while (current_task != NULL) {
+            if (current_task->TaskID == ID) {
+                // Remove the task from the list
+                if (prev_task == NULL) {
+                    timing_wheel[i] = current_task->next;
+                } else {
+                    prev_task->next = current_task->next;
+                }
+                // Return the task to the free list
+                current_task->next = free_list;
+                free_list = current_task;
+                return;
+            }
+            prev_task = current_task;
+            current_task = current_task->next;
+        }
+    }
+}
+
+void SCH_Go_To_Sleep(void) {
+    // Implement power-saving mode if applicable
+}
+
+void SCH_Report_Status(void) {
+    // Implement status reporting if applicable
+}

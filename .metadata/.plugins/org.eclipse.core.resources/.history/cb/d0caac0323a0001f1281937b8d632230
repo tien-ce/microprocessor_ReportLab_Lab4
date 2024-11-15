@@ -1,0 +1,105 @@
+/*
+ * scheduler.c
+ *
+ *  Created on: Oct 26, 2024
+ *      Author: thuyh
+ */
+
+#include "scheduler.h"
+UART_HandleTypeDef huart2;
+SCH_TaskList taskList = { .head = NULL };
+void SCH_Add_Task(void (*pFunction)(),  uint32_t DELAY,  uint32_t PERIOD) {
+    SCH_TaskNode* newNode = (SCH_TaskNode*)malloc(sizeof(SCH_TaskNode));
+    if (newNode == NULL) {
+        // Xử lý khi không cấp phát được bộ nhớ
+        return;
+    }
+    newNode->task.pFunction = pFunction;
+    newNode->task.Delay = DELAY;
+    newNode->task.Period = PERIOD;
+    newNode->task.RunMe = 0;
+    newNode->next = NULL;
+
+    // Nếu danh sách trống hoặc tác vụ mới có Delay nhỏ nhất, thêm vào đầu
+    if (taskList.head == NULL || taskList.head->task.Delay > DELAY) {
+        newNode->next = taskList.head;
+        taskList.head = newNode;
+    } else {
+        // Tìm vị trí để chèn node mới vào sao cho danh sách sắp xếp theo Delay tăng dần
+        SCH_TaskNode* current = taskList.head;
+        while (current->next != NULL && current->next->task.Delay <= DELAY) {
+            DELAY -= current->task.Delay;  // Điều chỉnh Delay tương đối cho các node phía sau
+            current = current->next;
+        }
+
+        // Chèn node mới vào danh sách
+        newNode->next = current->next;
+        current->next = newNode;
+    }
+}
+
+void SCH_Update(void) {
+    if (taskList.head == NULL) {
+        return;
+    }
+
+    // Giảm Delay của tác vụ đầu tiên
+    if (taskList.head->task.Delay > 0) {
+        taskList.head->task.Delay -= 1;
+    }
+
+    // Nếu tác vụ đầu tiên đã sẵn sàng thực thi
+    if (taskList.head->task.Delay == 0) {
+    	send_time();
+        taskList.head->task.RunMe += 1;
+    }
+}
+
+void SCH_Dispatch_Tasks(void) {
+    while (taskList.head != NULL) {
+        SCH_TaskNode* current = taskList.head;
+        // Kiểm tra nếu tác vụ đã sẵn sàng để thực thi
+        if (current->task.RunMe > 0) {
+        	send_time();
+            // Thực thi tác vụ
+            (*current->task.pFunction)();
+            current->task.RunMe -= 1;
+            // Nếu tác vụ có chu kỳ, thêm lại với Delay mới
+            if (current->task.Period > 0) {
+                SCH_Add_Task(current->task.pFunction, current->task.Period, current->task.Period);
+            }
+
+            // Xóa phần tử đầu tiên
+            SCH_Delete_Task(0);  // Xóa phần tử đầu tiên, không cần id, chỉ dùng hàm cho phần tử đầu
+        } else {
+            break; // Không có tác vụ nào khác sẵn sàng, thoát vòng lặp
+        }
+    }
+}
+
+void SCH_Add_Oneshort_tasks(void (*pFunction)(),int32_t DELAY){
+	SCH_Add_Task(pFunction, DELAY, 0);
+}
+void dele
+void SCH_Delete_Task(int id) {
+    SCH_TaskNode* current = taskList.head;
+    SCH_TaskNode* previous = NULL;
+    int currentPosition = 0;
+
+    // Duyệt qua danh sách để tìm vị trí cần xóa
+    while (current != NULL) {
+        if (currentPosition == id) {  // Kiểm tra nếu vị trí hiện tại bằng id cần xóa
+            if (previous == NULL) {
+                // Xóa đầu danh sách
+                taskList.head = current->next;
+            } else {
+                previous->next = current->next;
+            }
+            free(current);
+            return;
+        }
+        previous = current;
+        current = current->next;
+        currentPosition++;
+    }
+}

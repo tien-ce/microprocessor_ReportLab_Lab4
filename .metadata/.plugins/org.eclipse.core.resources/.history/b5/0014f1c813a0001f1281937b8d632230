@@ -1,0 +1,18 @@
+// scheduler.h
+
+typedef struct SCH_TaskNode {
+    sTasks task;                    // Thông tin của tác vụ
+    struct SCH_TaskNode* next;      // Con trỏ trỏ đến node tiếp theo
+} SCH_TaskNode;
+
+typedef struct {
+    SCH_TaskNode* head;             // Đầu của danh sách liên kết
+} SCH_TaskList;
+
+// Khởi tạo danh sách
+extern SCH_TaskList taskList;
+
+// Các hàm để thêm, xóa, và xử lý tác vụ trong linked list
+void SCH_Add_Task(void (*pFunction)(), const uint32_t DELAY, const uint32_t PERIOD);
+void SCH_Delete_Task(void (*pFunction)());
+void SCH_Dispatch_Tasks(void);

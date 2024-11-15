@@ -1,0 +1,66 @@
+#include "scheduler.h"
+
+#define SCH_MAX_TASKS 40
+uint8_t cycle = 10;
+uint8_t current_index_task = 0;
+sTasks SCH_Tasks_G[SCH_MAX_TASKS];
+
+void SCH_INIT(void){
+    current_index_task = 0;
+}
+
+void SCH_Add_Task(void (*pFunction)(), uint32_t DELAY_ms, uint32_t PERIOD_ms){
+    uint32_t DELAY_Ticks = DELAY_ms / cycle;
+    uint32_t PERIOD_Ticks = PERIOD_ms / cycle;
+
+    if(current_index_task >= SCH_MAX_TASKS){
+        // Task list is full
+        return;
+    }
+
+    uint32_t index_add = current_index_task;
+
+    // Find the position to insert the new task
+    for(uint32_t i = 0; i < current_index_task; i++){
+        if(DELAY_Ticks < SCH_Tasks_G[i].Delay){
+            index_add = i;
+            break;
+        } else {
+            DELAY_Ticks -= SCH_Tasks_G[i].Delay;
+        }
+    }
+
+    // Shift tasks to make room for the new task
+    for(uint32_t i = current_index_task; i > index_add; i--){
+        SCH_Tasks_G[i] = SCH_Tasks_G[i - 1];
+    }
+
+    // Insert the new task
+    SCH_Tasks_G[index_add].pTask = pFunction;
+    SCH_Tasks_G[index_add].Delay = DELAY_Ticks;
+    SCH_Tasks_G[index_add].Period = PERIOD_Ticks;
+    SCH_Tasks_G[index_add].RunMe = 0;
+    SCH_Tasks_G[index_add].TaskID = index_add; // Simple TaskID assignment
+
+    current_index_task++;
+
+    // Adjust the delay of the next task in the list
+    if(index_add < current_index_task - 1){
+        SCH_Tasks_G[index_add + 1].Delay -= DELAY_Ticks;
+    }
+}
+void SCH_Update(void){
+    if(current_index_task == 0){
+        return; // No tasks to update
+    }
+
+    // Decrement the delay of the first task
+    if(SCH_Tasks_G[0].Delay > 0){
+        SCH_Tasks_G[0].Delay--;
+    }
+
+    // If the task is ready to run
+    if(SCH_Tasks_G[0].Delay == 0){
+        SCH_Tasks_G[0].RunMe += 1;
+    }
+}

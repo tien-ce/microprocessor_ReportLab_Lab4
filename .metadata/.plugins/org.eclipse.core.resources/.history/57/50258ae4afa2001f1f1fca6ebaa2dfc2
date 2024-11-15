@@ -1,0 +1,54 @@
+/*
+ * scheduler.c
+ *
+ *  Created on: Oct 26, 2024
+ *      Author: thuyh
+ */
+
+#include "scheduler.h"
+
+#define SCH_MAX_TACKS 40
+uint8_t cycle = 10;
+uint8_t current_index_task = 0;
+sTasks SCH_Tasks_G[SCH_MAX_TACKS];
+void SCH_INIT(void){
+	current_index_task = 0;
+}
+void SCH_Add_Task(void (*pFunction)(), uint32_t DELAY, uint32_t PERIOD){
+	PERIOD = PERIOD /10;
+    DELAY = DELAY / cycle;
+    if (index < SCH_MAX_TACKS){
+    	SCH_Tasks_G[current_index_task].Delay = DELAY;
+    }
+    current_index_task++;
+}
+
+void SCH_Update(void){
+    if(SCH_Tasks_G[0].Delay > 0){
+        SCH_Tasks_G[0].Delay--;
+    }
+    if(SCH_Tasks_G[0].Delay <= 0){
+    	SCH_Tasks_G[0].RunMe++;
+    }
+}
+
+void SCH_Dispatch_Task(void){
+    if(SCH_Tasks_G[0].RunMe > 0){
+        SCH_Tasks_G[0].RunMe--;
+        (*SCH_Tasks_G[0].pTask)();
+
+        }
+}
+
+void SCH_Add_Oneshort_tasks(void (*pFunction)(),uint32_t DELAY){
+	SCH_Add_Task(pFunction, DELAY, 0);
+}
+
+void SCH_Delete(uint32_t id) {
+	for (int i = id;i<current_index_task;i++){
+		SCH_Tasks_G[i] = SCH_Tasks_G[i+1];
+	}
+	SCH_Tasks_G[current_index_task].Delay = 0;
+	SCH_Tasks_G[current_index_task].Period = 0;
+	current_index_task--;
+}

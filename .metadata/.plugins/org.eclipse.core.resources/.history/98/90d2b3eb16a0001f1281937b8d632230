@@ -1,0 +1,29 @@
+// scheduler.h
+#include "global.h"
+#include <stdlib.h>
+#include "main.h"
+typedef struct {
+    void (*pFunction)(void);   // Con trỏ hàm cho tác vụ
+    uint32_t Delay;            // Độ trễ ban đầu của tác vụ
+    uint32_t Period;           // Chu kỳ của tác vụ (nếu có)
+    uint8_t RunMe;             // Cờ để đánh dấu tác vụ đã sẵn sàng chạy
+} sTasks;
+
+typedef struct SCH_TaskNode {
+    sTasks task;                    // Thông tin của tác vụ
+    struct SCH_TaskNode* next;      // Con trỏ trỏ đến node tiếp theo
+} SCH_TaskNode;
+
+typedef struct {
+    SCH_TaskNode* head;             // Đầu của danh sách liên kết
+} SCH_TaskList;
+
+// Khởi tạo danh sách
+extern SCH_TaskList taskList;
+void sendtime();
+// Các hàm để thêm, xóa, và xử lý tác vụ trong linked list
+void SCH_Add_Task(void (*pFunction)(), const uint32_t DELAY, const uint32_t PERIOD);
+void SCH_Delete_Task(int id);
+void SCH_Dispatch_Tasks(void);
+void SCH_Update(void);
+void SCH_Add_Oneshort_tasks(void (*pFunction)(),int32_t DELAY);

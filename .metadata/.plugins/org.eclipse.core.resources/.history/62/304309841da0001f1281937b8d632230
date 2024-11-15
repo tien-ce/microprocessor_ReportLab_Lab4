@@ -1,0 +1,120 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include "scheduler.h"
+
+UART_HandleTypeDef huart2;
+
+SCH_TaskList taskList = {NULL};
+
+void SCH_Add_Task(void (*pFunction)(), const uint32_t DELAY, const uint32_t PERIOD) {
+    SCH_TaskNode* newNode = (SCH_TaskNode*)malloc(sizeof(SCH_TaskNode));
+    if (newNode == NULL) {
+        printf("Error: Unable to allocate memory for new task.\n");
+        return;
+    }
+    newNode->task.pFunction = pFunction;
+    newNode->task.Delay = DELAY;
+    newNode->task.Period = PERIOD;
+    newNode->task.RunMe = 0;
+    newNode->next = NULL;
+
+    if (taskList.head == NULL) {
+        taskList.head = newNode;
+    } else {
+        SCH_TaskNode* current = taskList.head;
+        SCH_TaskNode* previous = NULL;
+        uint32_t currentDelay = DELAY;
+
+        while (current != NULL && currentDelay >= current->task.Delay) {
+            currentDelay -= current->task.Delay;
+            previous = current;
+            current = current->next;
+        }
+
+        newNode->task.Delay = currentDelay;
+
+        if (previous == NULL) {
+            newNode->next = taskList.head;
+            taskList.head->task.Delay -= currentDelay;
+            taskList.head = newNode;
+        } else {
+            newNode->next = current;
+            previous->next = newNode;
+            if (current != NULL) {
+                current->task.Delay -= currentDelay;
+            }
+        }
+    }
+}
+
+void SCH_Delete_Fist_Task() {
+    if (taskList.head != NULL) {
+        SCH_TaskNode* current = taskList.head;
+        taskList.head = current->next;
+        if (taskList.head != NULL) {
+            taskList.head->task.Delay += current->task.Delay;
+        }
+        free(current);
+    }
+}
+
+
+
+void SCH_Delete_Task(int position) {
+    if (taskList.head == NULL) {
+        return;
+    }
+
+    SCH_TaskNode* current = taskList.head;
+    SCH_TaskNode* previous = NULL;
+    uint32_t currentPos = 0;
+
+    while (current != NULL && currentPos < position) {
+        previous = current;
+        current = current->next;
+        currentPos++;
+    }
+
+    if (current == NULL) {
+        return;
+    }
+
+    if (previous == NULL) {
+        taskList.head = current->next;
+    } else {
+        previous->next = current->next;
+    }
+
+    if (current->next != NULL) {
+        current->next->task.Delay += current->task.Delay;
+    }
+
+    free(current);
+}
+
+void SCH_Dispatch_Tasks(void) {
+    if (taskList.head != NULL && taskList.head->task.RunMe > 0) {
+        (*taskList.head->task.pFunction)();
+        taskList.head->task.RunMe--;
+
+        if (taskList.head->task.Period > 0) {
+            SCH_Add_Task(taskList.head->task.pFunction, taskList.head->task.Period, taskList.head->task.Period);
+        }
+
+        SCH_Delete_Fist_Task();
+    }
+}
+
+void SCH_Update(void) {
+    if (taskList.head == NULL) {
+        return;
+    }
+
+    if (taskList.head->task.Delay > 0) {
+        taskList.head->task.Delay--;
+        if (taskList.head->task.Delay == 0) {
+            taskList.head->task.RunMe++;
+        }
+    }
+}
